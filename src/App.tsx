@@ -8,7 +8,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 
-import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 
@@ -48,8 +47,9 @@ const App = () => (
           <Sonner position="top-right" />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Index />} />
+              <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/super-admin/login" element={<Login roles={["SUPER_ADMIN"]} defaultRole="SUPER_ADMIN" />} />
 
               {/* Super Admin */}
               <Route

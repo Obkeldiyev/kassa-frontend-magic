@@ -1,7 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { ApiBaseSetting } from "@/components/ApiBaseSetting";
 import { LogOut, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
@@ -76,7 +75,6 @@ export const DashboardLayout = ({ title, nav }: Props) => {
               <p className="font-display text-sm font-semibold">{role?.replace("_", " ")}</p>
             </div>
             <div className="flex items-center gap-2">
-              <ApiBaseSetting />
               <ThemeToggle />
             </div>
           </header>

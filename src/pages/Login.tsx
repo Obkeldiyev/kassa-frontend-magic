@@ -1,25 +1,30 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ArrowLeft, Loader2 } from "lucide-react";
+import { Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { ApiBaseSetting } from "@/components/ApiBaseSetting";
 import { api, dashboardPath, type Role } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-const tabs: { value: Role; label: string; path: string; gradient: string }[] = [
-  { value: "SUPER_ADMIN", label: "Super Admin", path: "/super-admin/login", gradient: "from-fuchsia-500 to-purple-600" },
-  { value: "ADMIN", label: "Admin", path: "/admin/login", gradient: "from-violet-500 to-indigo-600" },
-  { value: "CASHIER", label: "Cashier", path: "/cashier/login", gradient: "from-blue-500 to-cyan-500" },
+const tabs: { value: Role; label: string; path: string }[] = [
+  { value: "SUPER_ADMIN", label: "Super Admin", path: "/super-admin/login" },
+  { value: "ADMIN", label: "Admin", path: "/admin/login" },
+  { value: "CASHIER", label: "Cashier", path: "/cashier/login" },
 ];
 
-const Login = () => {
-  const [active, setActive] = useState<Role>("CASHIER");
+type LoginProps = {
+  roles?: Role[];
+  defaultRole?: Role;
+};
+
+const Login = ({ roles = ["ADMIN", "CASHIER"], defaultRole = "CASHIER" }: LoginProps) => {
+  const availableTabs = tabs.filter((tab) => roles.includes(tab.value));
+  const [active, setActive] = useState<Role>(roles.includes(defaultRole) ? defaultRole : availableTabs[0].value);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -50,14 +55,8 @@ const Login = () => {
       <div className="pointer-events-none absolute inset-0 gradient-mesh" />
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/20 blur-3xl" />
 
-      <header className="relative z-10 flex items-center justify-between px-6 py-5 md:px-10">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Link>
-        <div className="flex items-center gap-2">
-          <ApiBaseSetting />
-          <ThemeToggle />
-        </div>
+      <header className="relative z-10 flex items-center justify-end px-6 py-5 md:px-10">
+        <ThemeToggle />
       </header>
 
       <main className="relative z-10 mx-auto flex min-h-[calc(100vh-80px)] max-w-md flex-col items-center justify-center px-6 pb-12">
@@ -77,8 +76,8 @@ const Login = () => {
 
           <div className="rounded-3xl border border-border/60 bg-card/70 p-6 shadow-elegant backdrop-blur-xl">
             <Tabs value={active} onValueChange={(v) => setActive(v as Role)}>
-              <TabsList className="grid w-full grid-cols-3">
-                {tabs.map((t) => (
+              <TabsList className={`grid w-full ${availableTabs.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                {availableTabs.map((t) => (
                   <TabsTrigger key={t.value} value={t.value} className="text-xs">
                     {t.label}
                   </TabsTrigger>
@@ -114,12 +113,18 @@ const Login = () => {
                           autoComplete="current-password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          placeholder="••••••••"
+                          placeholder="********"
                           className="mt-1.5"
                         />
                       </div>
                       <Button type="submit" disabled={loading} className="w-full gradient-primary shadow-elegant hover-lift">
-                        {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in…</> : `Sign in as ${tabs.find(t=>t.value===active)?.label}`}
+                        {loading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in...
+                          </>
+                        ) : (
+                          `Sign in as ${tabs.find((t) => t.value === active)?.label}`
+                        )}
                       </Button>
                     </form>
                   </TabsContent>
@@ -127,9 +132,6 @@ const Login = () => {
               </AnimatePresence>
             </Tabs>
           </div>
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            Make sure your backend URL is set (server icon, top right).
-          </p>
         </motion.div>
       </main>
     </div>

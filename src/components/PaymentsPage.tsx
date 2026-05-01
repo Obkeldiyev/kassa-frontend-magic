@@ -1,24 +1,43 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
+import { downloadPermitDocument } from "@/lib/permitDocument";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Search, Receipt, Plus, Loader2, Eye } from "lucide-react";
+import { Download, Search, Receipt, Plus, Loader2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { EmptyState } from "@/components/EmptyState";
 import { StatCard } from "@/components/StatCard";
 
 interface Payment {
-  id: string; receiptNumber?: string; amount: string | number; currency?: string;
-  payerFullName: string; payerPhone?: string; description?: string; paidAt?: string; createdAt?: string;
-  terminalName?: string; cashier?: { first_name?: string; last_name?: string };
+  id: string;
+  receiptNumber?: string;
+  amount: string | number;
+  currency?: string;
+  payerFullName: string;
+  payerPhone?: string;
+  payerAddress?: string;
+  description?: string;
+  paidAt?: string;
+  createdAt?: string;
+  terminalName?: string;
+  terminalAddress?: string;
+  cashier?: { first_name?: string; last_name?: string };
 }
 
 type Variant = "ADMIN" | "CASHIER";
 const base = (v: Variant) => (v === "ADMIN" ? "/admin" : "/cashier");
+
+const emptyForm = {
+  amount: "",
+  payerFullName: "",
+  payerPhone: "",
+  payerAddress: "",
+  currency: "UZS",
+};
 
 const fmt = (n: any, c = "UZS") => {
   const v = Number(n) || 0;
@@ -31,13 +50,7 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<Payment | null>(null);
-
-  const [form, setForm] = useState({
-    amount: "", payerFullName: "", payerPhone: "", payerAddress: "",
-    description: "", receiptNumber: "", currency: "UZS",
-    receiverName: "", receiverAccount: "", receiverInn: "",
-    terminalName: "", terminalAddress: "", terminalId: "",
-  });
+  const [form, setForm] = useState(emptyForm);
 
   const load = () => api.get(`${base(variant)}/payments`).then((r) => setItems(r.data?.data ?? r.data ?? [])).catch(() => setItems([]));
   useEffect(() => { load(); }, [variant]);
@@ -54,19 +67,35 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
 
   const total = items.reduce((acc, p) => acc + Number(p.amount || 0), 0);
 
+  const getCashierFullName = async () => {
+    try {
+      const res = await api.get("/cashier/profile");
+      const profile = res.data?.data ?? res.data;
+      return [profile?.last_name, profile?.first_name, profile?.middle_name].filter(Boolean).join(" ");
+    } catch {
+      return "";
+    }
+  };
+
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       const body: any = { ...form, amount: Number(form.amount) };
       Object.keys(body).forEach((k) => { if (body[k] === "") delete body[k]; });
-      await api.post(`/cashier/payments`, body);
+      const res = await api.post(`/cashier/payments`, body);
+      const created = res.data?.data ?? res.data ?? body;
+      const cashierFullName = await getCashierFullName();
+      await downloadPermitDocument({ ...body, ...created, cashierFullName });
       toast.success("Payment created");
       setOpen(false);
-      setForm({ amount:"", payerFullName:"", payerPhone:"", payerAddress:"", description:"", receiptNumber:"", currency:"UZS", receiverName:"", receiverAccount:"", receiverInn:"", terminalName:"", terminalAddress:"", terminalId:"" });
+      setForm(emptyForm);
       load();
-    } catch (e: any) { toast.error(e?.response?.data?.message || "Failed"); }
-    finally { setLoading(false); }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -85,16 +114,8 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
                 <form onSubmit={create} className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div><Label>Payer full name *</Label><Input value={form.payerFullName} onChange={(e) => setForm({ ...form, payerFullName: e.target.value })} required className="mt-1" /></div>
                   <div><Label>Amount *</Label><Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required className="mt-1" /></div>
-                  <div><Label>Currency</Label><Input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} className="mt-1" /></div>
-                  <div><Label>Receipt number</Label><Input value={form.receiptNumber} onChange={(e) => setForm({ ...form, receiptNumber: e.target.value })} className="mt-1" /></div>
                   <div><Label>Payer phone</Label><Input value={form.payerPhone} onChange={(e) => setForm({ ...form, payerPhone: e.target.value })} className="mt-1" /></div>
-                  <div><Label>Payer address</Label><Input value={form.payerAddress} onChange={(e) => setForm({ ...form, payerAddress: e.target.value })} className="mt-1" /></div>
-                  <div className="md:col-span-2"><Label>Description</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" /></div>
-                  <div><Label>Receiver name</Label><Input value={form.receiverName} onChange={(e) => setForm({ ...form, receiverName: e.target.value })} className="mt-1" /></div>
-                  <div><Label>Receiver account</Label><Input value={form.receiverAccount} onChange={(e) => setForm({ ...form, receiverAccount: e.target.value })} className="mt-1" /></div>
-                  <div><Label>Receiver INN</Label><Input value={form.receiverInn} onChange={(e) => setForm({ ...form, receiverInn: e.target.value })} className="mt-1" /></div>
-                  <div><Label>Terminal name</Label><Input value={form.terminalName} onChange={(e) => setForm({ ...form, terminalName: e.target.value })} className="mt-1" /></div>
-                  <div className="md:col-span-2"><Label>Terminal address</Label><Input value={form.terminalAddress} onChange={(e) => setForm({ ...form, terminalAddress: e.target.value })} className="mt-1" /></div>
+                  <div><Label>Contract / address</Label><Input value={form.payerAddress} onChange={(e) => setForm({ ...form, payerAddress: e.target.value })} className="mt-1" /></div>
                   <DialogFooter className="md:col-span-2">
                     <Button type="submit" disabled={loading} className="gradient-primary">
                       {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating</> : "Create payment"}
@@ -139,9 +160,9 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
               className="grid w-full grid-cols-12 items-center gap-3 border-b border-border/40 px-4 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/40"
             >
               <div className="col-span-3 truncate font-medium">{p.payerFullName}</div>
-              <div className="col-span-2 truncate text-xs text-muted-foreground">{p.receiptNumber || "—"}</div>
-              <div className="col-span-3 hidden truncate text-xs text-muted-foreground md:block">{p.description || "—"}</div>
-              <div className="col-span-2 hidden text-xs text-muted-foreground md:block">{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : "—"}</div>
+              <div className="col-span-2 truncate text-xs text-muted-foreground">{p.receiptNumber || "-"}</div>
+              <div className="col-span-3 hidden truncate text-xs text-muted-foreground md:block">{p.description || "-"}</div>
+              <div className="col-span-2 hidden text-xs text-muted-foreground md:block">{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : "-"}</div>
               <div className="col-span-3 md:col-span-2 text-right font-mono font-semibold text-primary">{fmt(p.amount, p.currency)}</div>
             </motion.button>
           ))}
@@ -158,7 +179,7 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
               <div className="rounded-xl gradient-primary p-5 text-primary-foreground">
                 <p className="text-xs opacity-80">Amount</p>
                 <p className="font-display text-3xl font-bold">{fmt(view.amount, view.currency)}</p>
-                <p className="mt-2 text-xs opacity-90">Receipt {view.receiptNumber || "—"}</p>
+                <p className="mt-2 text-xs opacity-90">Receipt {view.receiptNumber || "-"}</p>
               </div>
               <Row k="Payer" v={view.payerFullName} />
               <Row k="Phone" v={view.payerPhone} />
@@ -166,6 +187,9 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
               <Row k="Terminal" v={view.terminalName} />
               <Row k="Cashier" v={view.cashier ? `${view.cashier.first_name ?? ""} ${view.cashier.last_name ?? ""}`.trim() : undefined} />
               <Row k="Paid at" v={view.paidAt ? new Date(view.paidAt).toLocaleString() : undefined} />
+              <Button className="mt-3 w-full" onClick={() => downloadPermitDocument(view)}>
+                <Download className="mr-2 h-4 w-4" /> Download receipt
+              </Button>
             </div>
           )}
         </DialogContent>
@@ -177,6 +201,6 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
 const Row = ({ k, v }: { k: string; v?: string }) => (
   <div className="flex items-center justify-between border-b border-border/40 py-2 last:border-b-0">
     <span className="text-xs uppercase tracking-widest text-muted-foreground">{k}</span>
-    <span className="text-right font-medium">{v || "—"}</span>
+    <span className="text-right font-medium">{v || "-"}</span>
   </div>
 );

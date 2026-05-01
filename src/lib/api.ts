@@ -1,17 +1,12 @@
 import axios from "axios";
 
-const STORAGE_KEY = "kassa.api_base";
 const TOKEN_KEY = "kassa.token";
 const ROLE_KEY = "kassa.role";
+const API_BASE = "http://localhost:9000";
 
 export type Role = "SUPER_ADMIN" | "ADMIN" | "CASHIER";
 
-export const getApiBase = () =>
-  localStorage.getItem(STORAGE_KEY) || "http://localhost:9000";
-export const setApiBase = (url: string) => {
-  localStorage.setItem(STORAGE_KEY, url.replace(/\/+$/, ""));
-  api.defaults.baseURL = getApiBase();
-};
+export const getApiBase = () => API_BASE;
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
 export const setToken = (t: string | null) => {
@@ -25,7 +20,7 @@ export const setRole = (r: Role | null) => {
   else localStorage.removeItem(ROLE_KEY);
 };
 
-export const api = axios.create({ baseURL: getApiBase() });
+export const api = axios.create({ baseURL: API_BASE });
 
 api.interceptors.request.use((cfg) => {
   const t = getToken();
