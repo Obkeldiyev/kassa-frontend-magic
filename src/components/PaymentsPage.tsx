@@ -455,35 +455,39 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
         <EmptyState title="No payments" desc="Receipts will appear here." />
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl">
-          <div className="min-w-[980px]">
-          <div className="grid grid-cols-24 gap-3 border-b border-border/60 bg-muted/40 px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            <div className="col-span-1">ID</div>
-            <div className="col-span-5">FIO</div>
-            <div className="col-span-3">JSHSHIR</div>
-            <div className="col-span-3">Tel raqami</div>
-            <div className="col-span-5">Nima uchun to'lov</div>
-            <div className="col-span-4">Date and time</div>
-            <div className="col-span-3 text-right">Amount</div>
-          </div>
-          {filtered.map((p, i) => (
-            <motion.button
-              key={p.id}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(i * 0.02, 0.4) }}
-              onClick={() => setView(p)}
-              className="grid w-full grid-cols-24 items-center gap-3 border-b border-border/40 px-4 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/40"
-            >
-              <div className="col-span-1 font-mono text-xs text-muted-foreground">{i + 1}</div>
-              <div className="col-span-5 truncate font-medium">{p.payerFullName}</div>
-              <div className="col-span-3 truncate font-mono text-xs text-muted-foreground">{payerJshshir(p)}</div>
-              <div className="col-span-3 truncate text-xs text-muted-foreground">{p.payerPhone || "-"}</div>
-              <div className="col-span-5 truncate text-xs text-muted-foreground">{paymentReason(p)}</div>
-              <div className="col-span-4 truncate text-xs text-muted-foreground">{p.paidAt ? new Date(p.paidAt).toLocaleString() : "-"}</div>
-              <div className="col-span-3 text-right font-mono font-semibold text-primary">{fmt(p.amount, p.currency)}</div>
-            </motion.button>
-          ))}
-          </div>
+          <table className="min-w-[1100px] w-full table-fixed text-left text-sm">
+            <thead className="border-b border-border/60 bg-muted/40 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              <tr>
+                <th className="w-14 px-4 py-3">ID</th>
+                <th className="w-56 px-4 py-3">FIO</th>
+                <th className="w-40 px-4 py-3">JSHSHIR</th>
+                <th className="w-36 px-4 py-3">Tel raqami</th>
+                <th className="w-64 px-4 py-3">Nima uchun to'lov</th>
+                <th className="w-44 px-4 py-3">Date and time</th>
+                <th className="w-36 px-4 py-3 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p, i) => (
+                <motion.tr
+                  key={p.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i * 0.02, 0.4) }}
+                  onClick={() => setView(p)}
+                  className="cursor-pointer border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/40"
+                >
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{i + 1}</td>
+                  <td className="truncate px-4 py-3 font-medium">{p.payerFullName}</td>
+                  <td className="truncate px-4 py-3 font-mono text-xs text-muted-foreground">{payerJshshir(p)}</td>
+                  <td className="truncate px-4 py-3 text-xs text-muted-foreground">{p.payerPhone || "-"}</td>
+                  <td className="truncate px-4 py-3 text-xs text-muted-foreground">{paymentReason(p)}</td>
+                  <td className="truncate px-4 py-3 text-xs text-muted-foreground">{p.paidAt ? new Date(p.paidAt).toLocaleString() : "-"}</td>
+                  <td className="px-4 py-3 text-right font-mono font-semibold text-primary">{fmt(p.amount, p.currency)}</td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
