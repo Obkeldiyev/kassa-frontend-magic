@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/EmptyState";
 import { api } from "@/lib/api";
 import { createPresetId, type ReceiverPreset } from "@/lib/paymentPresets";
-import { Plus, Save, Trash2 } from "lucide-react";
+import { GripVertical, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const blankPreset = (): ReceiverPreset => ({
@@ -20,16 +20,19 @@ const blankPreset = (): ReceiverPreset => ({
 type PaymentCategory = {
   id: string;
   name: string;
+  sortOrder?: number;
 };
 
 const blankCategory = (): PaymentCategory => ({
   id: createPresetId(),
   name: "",
+  sortOrder: 0,
 });
 
 export const ReceiverSettingsPage = () => {
   const [items, setItems] = useState<ReceiverPreset[]>([]);
   const [categories, setCategories] = useState<PaymentCategory[]>([]);
+  const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -53,6 +56,21 @@ export const ReceiverSettingsPage = () => {
 
   const updateCategory = (id: string, patch: Partial<PaymentCategory>) => {
     setCategories((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  };
+
+  const moveCategory = (targetId: string) => {
+    if (!draggedCategoryId || draggedCategoryId === targetId) return;
+
+    setCategories((current) => {
+      const from = current.findIndex((item) => item.id === draggedCategoryId);
+      const to = current.findIndex((item) => item.id === targetId);
+      if (from < 0 || to < 0) return current;
+
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next.map((item, index) => ({ ...item, sortOrder: index }));
+    });
   };
 
   const remove = async (id: string | number) => {
@@ -100,7 +118,7 @@ export const ReceiverSettingsPage = () => {
     }
 
     const cleanedCategories = categories
-      .map((item) => ({ ...item, name: item.name.trim() }))
+      .map((item, index) => ({ ...item, name: item.name.trim(), sortOrder: index }))
       .filter((item) => item.name);
 
     if (cleanedCategories.length !== categories.length) {
@@ -123,7 +141,7 @@ export const ReceiverSettingsPage = () => {
       }));
 
       const savedCategories = await Promise.all(cleanedCategories.map(async (item) => {
-        const body = { name: item.name };
+        const body = { name: item.name, sortOrder: item.sortOrder ?? 0 };
         if (!item.id.startsWith("preset-")) {
           const res = await api.patch(`/admin/payment-categories/${item.id}`, body);
           return res.data?.data ?? item;
@@ -164,14 +182,30 @@ export const ReceiverSettingsPage = () => {
 
       <div className="mb-6 overflow-hidden rounded-lg border border-border/60 bg-card/60">
         <div className="grid grid-cols-12 gap-3 border-b border-border/60 bg-muted/40 px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-          <div className="col-span-11">To'lov turi</div>
+          <div className="col-span-1"></div>
+          <div className="col-span-10">To'lov turi</div>
           <div className="col-span-1 text-right">Remove</div>
         </div>
         {categories.length === 0 ? (
           <div className="px-4 py-6 text-sm text-muted-foreground">Add payment categories that cashiers can choose.</div>
-        ) : categories.map((item) => (
-          <div key={item.id} className="grid grid-cols-12 gap-3 border-b border-border/40 px-4 py-3 last:border-b-0">
-            <div className="col-span-10 md:col-span-11">
+        ) : categories.map((item, index) => (
+          <div
+            key={item.id}
+            draggable
+            onDragStart={() => setDraggedCategoryId(item.id)}
+            onDragOver={(e) => {
+              e.preventDefault();
+              moveCategory(item.id);
+            }}
+            onDragEnd={() => setDraggedCategoryId(null)}
+            className="grid grid-cols-12 gap-3 border-b border-border/40 px-4 py-3 last:border-b-0"
+          >
+            <div className="col-span-1 flex items-center">
+              <button type="button" className="cursor-grab rounded-md p-1 text-muted-foreground hover:bg-muted" aria-label={`Drag category ${index + 1}`}>
+                <GripVertical className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="col-span-9 md:col-span-10">
               <Label className="sr-only">To'lov turi</Label>
               <Input value={item.name} onChange={(e) => updateCategory(item.id, { name: e.target.value })} placeholder="Kontrakt to'lovi" />
             </div>
