@@ -76,9 +76,9 @@ const receiptTable = (payment: PermitPayment) => {
   const description = payment.description || payment.rawReceiptData?.description || "-";
   const contractNumber = payment.contractNumber || payment.rawReceiptData?.contractNumber || "-";
   const bankName = payment.receiver?.name || payment.receiverName || payment.bankName || 'NOY "TOSHKENT SHAHRIDAGI TURIN POLITEXNIKA UNIVERSITETI"';
-  const receiverAccount = payment.receiverAccount || payment.receiver?.account || "20208000504790690008";
-  const receiverInn = payment.receiverInn || payment.receiver?.inn || "301249598";
-  const receiverMfo = payment.receiverMfo || payment.receiver?.MFO || payment.receiver?.mfo || payment.rawReceiptData?.receiverMfo || "00423";
+  const receiverAccount = payment.receiver?.account || payment.receiverAccount || "20208000504790690008";
+  const receiverInn = payment.receiver?.inn || payment.receiverInn || "301249598";
+  const receiverMfo = payment.receiver?.MFO || payment.receiver?.mfo || payment.receiverMfo || payment.rawReceiptData?.receiverMfo || "00423";
 
   return `<table class="receipt">
     <tr>
