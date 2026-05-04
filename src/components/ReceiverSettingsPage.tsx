@@ -42,7 +42,7 @@ export const ReceiverSettingsPage = () => {
         const next = (res.data?.data ?? []).map((item: ReceiverPreset) => ({
         ...item,
         mfo: item.MFO || item.mfo || "",
-        bankName: item.bankName || item.name || "",
+        bankName: item.name || item.bankName || "",
       }));
         setItems(next);
       })
@@ -108,7 +108,7 @@ export const ReceiverSettingsPage = () => {
       .map((item) => ({
         ...item,
         name: item.name.trim(),
-        bankName: item.bankName?.trim() || item.name.trim(),
+        bankName: item.name.trim(),
         account: item.account.trim(),
         inn: item.inn.trim(),
         mfo: (item.mfo || item.MFO || "").trim(),
@@ -132,7 +132,7 @@ export const ReceiverSettingsPage = () => {
     setLoading(true);
     try {
       const saved = await Promise.all(cleaned.map(async (item) => {
-        const body = { name: item.bankName || item.name, bankName: item.bankName || item.name, account: item.account, inn: item.inn, MFO: item.mfo, mfo: item.mfo };
+        const body = { name: item.name, account: item.account, inn: item.inn, MFO: item.mfo, mfo: item.mfo };
         if (typeof item.id === "number") {
           const res = await api.patch(`/admin/payment-receivers/${item.id}`, body);
           const savedItem = res.data?.data ?? item;
@@ -236,7 +236,7 @@ export const ReceiverSettingsPage = () => {
             <div key={item.id} className="grid grid-cols-12 gap-3 border-b border-border/40 px-4 py-3 last:border-b-0">
               <div className="col-span-12 md:col-span-3">
                 <Label className="sr-only">Bank name</Label>
-                <Input value={item.bankName || item.name || ""} onChange={(e) => update(item.id, { bankName: e.target.value, name: e.target.value })} placeholder="IPOTEKA-BANK ATIB" />
+                <Input value={item.name || ""} onChange={(e) => update(item.id, { name: e.target.value, bankName: e.target.value })} placeholder="IPOTEKA-BANK ATIB" />
               </div>
               <div className="col-span-12 md:col-span-3">
                 <Label className="sr-only">Xisob raqam</Label>

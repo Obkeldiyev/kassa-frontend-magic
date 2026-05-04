@@ -32,6 +32,7 @@ interface Payment {
   createdAt?: string;
   receiverName?: string;
   bankName?: string;
+  receiver?: { name?: string; account?: string; inn?: string; MFO?: string; mfo?: string };
   receiverAccount?: string;
   receiverInn?: string;
   receiverMfo?: string;
@@ -260,7 +261,8 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
         description: form.description,
         receiverAccountId: Number(receiver.id),
         receiverName: receiver.name,
-        bankName: receiver.bankName || receiver.name,
+        bankName: receiver.name,
+        receiver,
         receiverAccount: receiver.account,
         receiverInn: receiver.inn,
         receiverMfo: receiver.mfo || receiver.MFO,
@@ -311,7 +313,8 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
       contractNumber: form.contractNumber,
       contractDate: form.contractDate,
       receiverName: receiver.name,
-      bankName: receiver.bankName || receiver.name,
+      bankName: receiver.name,
+      receiver,
       receiverAccount: receiver.account,
       receiverInn: receiver.inn,
       receiverMfo: receiver.mfo || receiver.MFO,

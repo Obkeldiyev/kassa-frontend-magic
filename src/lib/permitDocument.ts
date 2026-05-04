@@ -17,6 +17,7 @@ type PermitPayment = {
   createdAt?: string;
   receiverName?: string;
   bankName?: string;
+  receiver?: { name?: string; account?: string; inn?: string; MFO?: string; mfo?: string };
   receiverAccount?: string;
   receiverInn?: string;
   receiverMfo?: string;
@@ -74,11 +75,10 @@ const receiptTable = (payment: PermitPayment) => {
   const payerPhone = payment.payerPhone || "-";
   const description = payment.description || payment.rawReceiptData?.description || "-";
   const contractNumber = payment.contractNumber || payment.rawReceiptData?.contractNumber || "-";
-  const receiverAccount = payment.receiverAccount || "20208000504790690008";
-  const receiverInn = payment.receiverInn || "301249598";
-  const receiverMfo = payment.receiverMfo || payment.rawReceiptData?.receiverMfo || "00423";
-  const bankName = payment.bankName || payment.receiverName || 'NOY "TOSHKENT SHAHRIDAGI TURIN POLITEXNIKA UNIVERSITETI"';
-  const receiverName = payment.receiverName || bankName;
+  const bankName = payment.receiver?.name || payment.receiverName || payment.bankName || 'NOY "TOSHKENT SHAHRIDAGI TURIN POLITEXNIKA UNIVERSITETI"';
+  const receiverAccount = payment.receiverAccount || payment.receiver?.account || "20208000504790690008";
+  const receiverInn = payment.receiverInn || payment.receiver?.inn || "301249598";
+  const receiverMfo = payment.receiverMfo || payment.receiver?.MFO || payment.receiver?.mfo || payment.rawReceiptData?.receiverMfo || "00423";
 
   return `<table class="receipt">
     <tr>
@@ -95,7 +95,7 @@ const receiptTable = (payment: PermitPayment) => {
         <div>РЕЕСТР</div>
         <div style="margin-top: .8mm;">Кассир: ${esc(cashier)}</div>
       </td>
-      <td class="right">${esc(receiverName)} ${esc(paymentType)} UCHUN</td>
+      <td class="right">${esc(bankName)} ${esc(paymentType)} UCHUN</td>
     </tr>
     <tr><td class="right">ТОШКЕНТ Ш., ${esc(bankName)}</td></tr>
     <tr><td class="right">ҳ/р: ${esc(receiverAccount)}&nbsp;&nbsp; МФО: ${esc(receiverMfo)}&nbsp;&nbsp; ИНН: ${esc(receiverInn)}</td></tr>
