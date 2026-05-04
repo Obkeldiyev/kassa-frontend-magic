@@ -2,7 +2,7 @@ import axios from "axios";
 
 const TOKEN_KEY = "kassa.token";
 const ROLE_KEY = "kassa.role";
-const API_BASE = "http://localhost:9000";
+const API_BASE = "/api";
 
 export type Role = "SUPER_ADMIN" | "ADMIN" | "CASHIER";
 
