@@ -4,6 +4,7 @@ export type ReceiverPreset = {
   account: string;
   inn: string;
   mfo?: string;
+  MFO?: string;
 };
 
 const PRESETS_KEY = "kassa.receiverPresets";

@@ -17,28 +17,6 @@ const blankPreset = (): ReceiverPreset => ({
   mfo: "",
 });
 
-const MFO_KEY = "kassa.receiverMfo";
-
-const getStoredMfo = () => {
-  try {
-    return JSON.parse(localStorage.getItem(MFO_KEY) || "{}") as Record<string, string>;
-  } catch {
-    return {};
-  }
-};
-
-const saveStoredMfo = (items: ReceiverPreset[]) => {
-  const current = getStoredMfo();
-  items.forEach((item) => {
-    const mfo = item.mfo?.trim();
-    if (mfo) {
-      current[String(item.id)] = mfo;
-      current[item.account] = mfo;
-    }
-  });
-  localStorage.setItem(MFO_KEY, JSON.stringify(current));
-};
-
 type PaymentCategory = {
   id: string;
   name: string;
@@ -57,10 +35,9 @@ export const ReceiverSettingsPage = () => {
   useEffect(() => {
     api.get("/admin/payment-receivers")
       .then((res) => {
-        const mfo = getStoredMfo();
         const next = (res.data?.data ?? []).map((item: ReceiverPreset) => ({
           ...item,
-          mfo: mfo[String(item.id)] || mfo[item.account] || "00423",
+          mfo: item.MFO || item.mfo || "",
         }));
         setItems(next);
       })
@@ -113,7 +90,7 @@ export const ReceiverSettingsPage = () => {
         name: item.name.trim(),
         account: item.account.trim(),
         inn: item.inn.trim(),
-        mfo: item.mfo?.trim() || "00423",
+        mfo: (item.mfo || item.MFO || "").trim(),
       }))
       .filter((item) => item.name && item.account && item.inn && item.mfo);
 
@@ -134,13 +111,15 @@ export const ReceiverSettingsPage = () => {
     setLoading(true);
     try {
       const saved = await Promise.all(cleaned.map(async (item) => {
-        const body = { name: item.name, account: item.account, inn: item.inn };
+        const body = { name: item.name, account: item.account, inn: item.inn, MFO: item.mfo, mfo: item.mfo };
         if (typeof item.id === "number") {
           const res = await api.patch(`/admin/payment-receivers/${item.id}`, body);
-          return res.data?.data ?? item;
+          const savedItem = res.data?.data ?? item;
+          return { ...savedItem, mfo: savedItem.MFO || item.mfo };
         }
         const res = await api.post("/admin/payment-receivers", body);
-        return res.data?.data ?? item;
+        const savedItem = res.data?.data ?? item;
+        return { ...savedItem, mfo: savedItem.MFO || item.mfo };
       }));
 
       const savedCategories = await Promise.all(cleanedCategories.map(async (item) => {
@@ -153,9 +132,7 @@ export const ReceiverSettingsPage = () => {
         return res.data?.data ?? item;
       }));
 
-      const savedWithMfo = saved.map((item, index) => ({ ...item, mfo: cleaned[index]?.mfo || "00423" }));
-      saveStoredMfo(savedWithMfo);
-      setItems(savedWithMfo);
+      setItems(saved);
       setCategories(savedCategories);
       toast.success("Payment settings saved");
     } catch (e: any) {

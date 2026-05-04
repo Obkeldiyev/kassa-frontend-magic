@@ -72,14 +72,6 @@ const compactMoney = (n: any) => new Intl.NumberFormat("en-US", { maximumFractio
 type ChartMode = "day" | "week" | "month" | "year";
 type PaymentCategory = { id: string; name: string };
 
-const getStoredReceiverMfo = () => {
-  try {
-    return JSON.parse(localStorage.getItem("kassa.receiverMfo") || "{}") as Record<string, string>;
-  } catch {
-    return {};
-  }
-};
-
 const chartKey = (value: string | undefined, mode: ChartMode) => {
   const date = value ? new Date(value) : new Date();
   const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
@@ -169,10 +161,9 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
       api.get("/cashier/payment-categories"),
     ]).then(([receiverRes, categoryRes]) => {
       const nextReceivers = receiverRes.data?.data ?? [];
-      const mfo = getStoredReceiverMfo();
       const receiversWithMfo = nextReceivers.map((item: ReceiverPreset) => ({
         ...item,
-        mfo: mfo[String(item.id)] || mfo[item.account] || "00423",
+        mfo: item.MFO || item.mfo || "",
       }));
       const nextCategories = categoryRes.data?.data ?? [];
       setReceivers(receiversWithMfo);
@@ -259,7 +250,7 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
         receiverName: receiver.name,
         receiverAccount: receiver.account,
         receiverInn: receiver.inn,
-        receiverMfo: receiver.mfo || "00423",
+        receiverMfo: receiver.mfo || receiver.MFO,
         rawReceiptData: {
           jshshir: form.jshshir,
           paymentCategoryId: category.id,
@@ -268,7 +259,7 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
           contractDate: form.contractDate,
           operationNumber: form.operationNumber,
           receiverPresetId: receiver.id,
-          receiverMfo: receiver.mfo || "00423",
+          receiverMfo: receiver.mfo || receiver.MFO,
         },
       };
       Object.keys(body).forEach((k) => { if (body[k] === "") delete body[k]; });
@@ -307,14 +298,14 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
       receiverName: receiver.name,
       receiverAccount: receiver.account,
       receiverInn: receiver.inn,
-      receiverMfo: receiver.mfo || "00423",
+      receiverMfo: receiver.mfo || receiver.MFO,
       rawReceiptData: {
         jshshir: form.jshshir,
         paymentType: category.name,
         contractNumber: form.contractNumber,
         contractDate: form.contractDate,
         operationNumber: form.operationNumber,
-        receiverMfo: receiver.mfo || "00423",
+        receiverMfo: receiver.mfo || receiver.MFO,
       },
     };
   };
