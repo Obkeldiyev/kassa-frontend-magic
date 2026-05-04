@@ -16,8 +16,9 @@ import Admins from "./pages/super-admin/Admins";
 import { CashiersPage } from "./components/CashiersPage";
 import { PaymentsPage } from "./components/PaymentsPage";
 import { ProfilePage } from "./components/ProfilePage";
+import { ReceiverSettingsPage } from "./components/ReceiverSettingsPage";
 
-import { LayoutDashboard, ShieldCheck, Users, Receipt, User } from "lucide-react";
+import { Banknote, LayoutDashboard, ShieldCheck, Users, Receipt, User } from "lucide-react";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const superAdminNav = [
 const adminNav = [
   { to: "/admin", label: "Cashiers", icon: Users },
   { to: "/admin/payments", label: "Payments", icon: Receipt },
+  { to: "/admin/payment-numbers", label: "Numbers", icon: Banknote },
   { to: "/admin/profile", label: "Profile", icon: User },
 ];
 
@@ -74,6 +76,7 @@ const App = () => (
               >
                 <Route path="/admin" element={<CashiersPage basePath="/admin" />} />
                 <Route path="/admin/payments" element={<PaymentsPage variant="ADMIN" />} />
+                <Route path="/admin/payment-numbers" element={<ReceiverSettingsPage />} />
                 <Route path="/admin/profile" element={<ProfilePage variant="ADMIN" />} />
               </Route>
 

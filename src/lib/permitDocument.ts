@@ -1,15 +1,32 @@
 type PermitPayment = {
-  id?: string;
+  id?: string | number;
   receiptNumber?: string;
+  operationNumber?: string;
   amount?: string | number;
   currency?: string;
   payerFullName?: string;
-  payerPhone?: string;
+  payerJshshir?: string;
   payerAddress?: string;
+  paymentType?: string;
+  paymentCategory?: { name?: string };
+  contractNumber?: string;
+  contractDate?: string;
   paidAt?: string;
   createdAt?: string;
+  receiverName?: string;
+  receiverAccount?: string;
+  receiverInn?: string;
+  receiverMfo?: string;
   cashier?: { first_name?: string; last_name?: string; middle_name?: string };
   cashierFullName?: string;
+  rawReceiptData?: {
+    jshshir?: string;
+    paymentType?: string;
+    contractNumber?: string;
+    contractDate?: string;
+    operationNumber?: string;
+    receiverMfo?: string;
+  };
 };
 
 const esc = (value?: string | number) =>
@@ -28,8 +45,7 @@ const responsibleName = (payment: PermitPayment) =>
   payment.cashierFullName ||
   fullName(payment.cashier?.last_name, payment.cashier?.first_name, payment.cashier?.middle_name);
 
-const paymentDate = (payment: PermitPayment) => {
-  const value = payment.paidAt || payment.createdAt;
+const safeDate = (value?: string) => {
   const date = value ? new Date(value) : new Date();
   return Number.isNaN(date.getTime()) ? new Date() : date;
 };
@@ -41,181 +57,161 @@ const fmtTime = (date: Date) =>
   date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 
 const receiptNumber = (payment: PermitPayment) =>
-  payment.receiptNumber || payment.id || "00423/20";
+  payment.operationNumber || payment.receiptNumber || payment.rawReceiptData?.operationNumber || String(payment.id || "00423/20");
 
-export const buildPermitDocumentHtml = async (payment: PermitPayment) => {
-  const date = paymentDate(payment);
+const receiptTable = (payment: PermitPayment) => {
+  const date = safeDate(payment.paidAt || payment.createdAt);
+  const contractDate = safeDate(payment.contractDate || payment.rawReceiptData?.contractDate);
   const amount = fmtMoney(payment.amount);
   const cashier = responsibleName(payment) || "-";
   const payer = payment.payerFullName || "-";
-  const clientAddress = payment.payerAddress || "1/47 04.09.2025 YILDAGI SHARTNOMA YOTOQXONA UCHUN";
-  const rrn = payment.id || "0285503833383 / 33106378";
+  const jshshir = payment.payerJshshir || payment.rawReceiptData?.jshshir || "-";
+  const paymentType = payment.paymentCategory?.name || payment.paymentType || payment.rawReceiptData?.paymentType || "-";
+  const contractNumber = payment.contractNumber || payment.rawReceiptData?.contractNumber || "-";
+  const receiverAccount = payment.receiverAccount || "20208000504790690008";
+  const receiverInn = payment.receiverInn || "301249598";
+  const receiverMfo = payment.receiverMfo || payment.rawReceiptData?.receiverMfo || "00423";
+  const receiverName = payment.receiverName || 'NOY "TOSHKENT SHAHRIDAGI TURIN POLITEXNIKA UNIVERSITETI"';
 
-  return `<!doctype html>
+  return `<table class="receipt">
+    <tr>
+      <td class="left" rowspan="7">
+        <div class="title">ХАБАРНОМА</div>
+        <div style="margin-top: 1.2mm;">"ИПОТЕКА-БАНК" АТИБ</div>
+        <div>Тўлов тури: ${esc(paymentType)}</div>
+        <div style="margin-top: 1.6mm;">${esc(receiptNumber(payment))} - Chakana kassa (bank)</div>
+        <div style="margin-top: 1.2mm;">сана: ${esc(fmtDate(date))}</div>
+        <div>вақти: ${esc(fmtTime(date))}</div>
+        <div style="margin-top: 2mm;">РРН: ${esc(receiptNumber(payment))}</div>
+        <div class="amount">${esc(amount)}</div>
+        <div style="margin-top: 1.2mm;">${esc(receiverAccount)}/1350/135</div>
+        <div>РЕЕСТР</div>
+        <div style="margin-top: .8mm;">Кассир: ${esc(cashier)}</div>
+      </td>
+      <td class="right">${esc(receiverName)} ${esc(paymentType)} UCHUN</td>
+    </tr>
+    <tr><td class="right">ТОШКЕНТ Ш., ИПОТЕКА-БАНК АТИБ МЕҲНАТ ФИЛИАЛИ</td></tr>
+    <tr><td class="right">ҳ/р: ${esc(receiverAccount)}&nbsp;&nbsp; МФО: ${esc(receiverMfo)}&nbsp;&nbsp; ИНН: ${esc(receiverInn)}</td></tr>
+    <tr><td class="right muted-line"></td></tr>
+    <tr><td class="right">Тўловчи ФИШ: ${esc(payer)}</td></tr>
+    <tr><td class="right">ЖШШИР: ${esc(jshshir)} &nbsp;&nbsp; Шартнома: ${esc(contractNumber)} / ${esc(fmtDate(contractDate))}</td></tr>
+    <tr class="row-tight">
+      <td class="right">
+        <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+          <tr>
+            <td style="border:0; padding:0; width:24mm;">Сана:</td>
+            <td style="border:0; padding:0;">${esc(fmtDate(date))}й.</td>
+            <td style="border:0; padding:0; width:34mm;">Суммаси:</td>
+            <td style="border:0; padding:0; text-align:right;">${esc(amount)}</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td class="left signature">Кассир имзоси: <span class="signature-line"></span></td>
+      <td class="right signature">
+        <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+          <tr>
+            <td style="border:0; padding:0; width:38mm;">Мижоз имзоси:</td>
+            <td style="border:0; padding:0;"></td>
+            <td style="border:0; padding:0; width:34mm;">Жами сумма:</td>
+            <td style="border:0; padding:0; text-align:right; font-size:9.4pt; font-weight:700;">${esc(amount)}</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>`;
+};
+
+export const buildPermitDocumentHtml = async (payment: PermitPayment) => `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
   <title>Xabarnoma ${esc(receiptNumber(payment))}</title>
   <style>
     @page { size: A4 portrait; margin: 12mm; }
-    body {
+    html, body {
       margin: 0;
+      background: #ffffff !important;
+      color: #000000 !important;
+    }
+    body {
       font-family: Arial, Helvetica, sans-serif;
-      color: #000;
-      background: #fff;
-      font-size: 10.5pt;
-      font-weight: 700;
+      font-size: 7.8pt;
+      font-weight: 600;
     }
     .sheet {
       width: 186mm;
       min-height: 273mm;
-      position: relative;
+      background: #ffffff !important;
+      color: #000000 !important;
+    }
+    .copy {
+      width: 170mm;
+      margin-left: auto;
+      margin-right: 2mm;
+      margin-bottom: 10mm;
     }
     .receipt {
-      position: absolute;
-      left: 28mm;
-      top: 78mm;
-      width: 130mm;
-      border: 1.5pt solid #000;
+      display: table;
+      width: 170mm;
+      border: 1pt solid #000000;
       border-collapse: collapse;
       table-layout: fixed;
+      background: #ffffff !important;
+      color: #000000 !important;
     }
     .receipt td {
-      border: 1.2pt solid #000;
-      padding: 2.2mm 2mm;
+      border: 1pt solid #000000;
+      padding: .75mm 1.8mm;
       vertical-align: middle;
-      line-height: 1.08;
+      line-height: 1.03;
+      background: #ffffff !important;
+      color: #000000 !important;
     }
     .left {
-      width: 40mm;
+      width: 48mm;
       text-align: center;
+      font-size: 7.4pt;
     }
     .right {
-      width: 90mm;
+      width: 122mm;
     }
-    .center { text-align: center; }
-    .small { font-size: 9.5pt; }
-    .tiny { font-size: 8.5pt; }
-    .amount { font-size: 13pt; font-weight: 800; }
-    .muted-line { height: 7mm; }
-    .row-tight td { padding-top: 1.5mm; padding-bottom: 1.5mm; }
-    .purpose-label {
-      width: 26mm;
-      text-align: center;
+    .title {
+      font-size: 8.4pt;
+      font-weight: 700;
     }
-    .purpose-text {
-      height: 20mm;
-      text-align: center;
-      font-size: 9.5pt;
+    .amount {
+      margin-top: .4mm;
+      font-size: 9.4pt;
+      font-weight: 700;
+    }
+    .muted-line {
+      height: 2.4mm;
+    }
+    .row-tight td {
+      padding-top: .45mm;
+      padding-bottom: .45mm;
     }
     .signature {
-      height: 9mm;
+      height: 5.6mm;
       white-space: nowrap;
     }
     .signature-line {
       display: inline-block;
-      width: 28mm;
-      border-bottom: 1.2pt solid #000;
+      width: 38mm;
+      border-bottom: 1pt solid #000000;
       transform: translateY(-1mm);
-    }
-    .stamp {
-      position: absolute;
-      left: 90mm;
-      top: 50mm;
-      width: 28mm;
-      height: 28mm;
-      border: 5pt solid rgba(0,0,0,.45);
-      border-radius: 50%;
-      opacity: .55;
-    }
-    .stamp:before {
-      content: "";
-      position: absolute;
-      left: -7mm;
-      top: 9mm;
-      width: 42mm;
-      border-top: 6pt solid rgba(0,0,0,.45);
-      transform: rotate(16deg);
-    }
-    .brand {
-      font-size: 28pt;
-      font-style: italic;
-      font-weight: 800;
-      letter-spacing: -1px;
-      color: rgba(0,0,0,.62);
-      line-height: .8;
-    }
-    .brand-small {
-      display: block;
-      margin-top: 2mm;
-      font-size: 18pt;
-      font-style: italic;
-      font-weight: 800;
-      color: rgba(0,0,0,.62);
     }
   </style>
 </head>
 <body>
   <div class="sheet">
-    <table class="receipt">
-      <tr>
-        <td class="left" rowspan="8">
-          <div>ХАБАРНОМА</div>
-          <div style="margin-top: 3mm;">"ИПОТЕКА-БАНК" АТИБ</div>
-          <div>Тўлов тури: НАҚДСИЗ</div>
-          <div style="margin-top: 3mm;">${esc(receiptNumber(payment))} -Chakana kassa(bank)</div>
-          <div style="margin-top: 2.5mm;">сана: ${esc(fmtDate(date))} вақти: ${esc(fmtTime(date))}</div>
-          <div style="margin-top: 6mm;">РРН:${esc(rrn)}</div>
-          <div class="amount">${esc(amount)}</div>
-          <div style="margin-top: 2mm;">42300233817963/1350/135 РЕЕСТР</div>
-          <div>Кассир: ${esc(cashier)}</div>
-        </td>
-        <td class="right">НОУ "TOSHKENT SHAHRIDAGI TURIN POLITEXNIKA UNIVERSITETI" KONTRAKT TO'LOVI UCHUN</td>
-      </tr>
-      <tr><td class="right">ТОШКЕНТ Ш., ИПОТЕКА-БАНК АТИБ МЕХНАТ ФИЛИАЛИ</td></tr>
-      <tr><td class="right">х/р: 20208000504790690008 МФО: 00423 ИНН: 301249598</td></tr>
-      <tr><td class="right muted-line"></td></tr>
-      <tr><td class="right">Тўловчи ФИШ: ${esc(payer)}</td></tr>
-      <tr><td class="right">Мижоз манзили: ${esc(clientAddress)}</td></tr>
-      <tr class="row-tight">
-        <td class="right">
-          <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
-            <tr>
-              <td style="border:0; width:24mm;">Сана:</td>
-              <td style="border:0;">${esc(fmtDate(date))}й.</td>
-              <td style="border:0; width:25mm;">Суммаси:</td>
-              <td style="border:0; text-align:right;">${esc(amount)}</td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-      <tr>
-        <td class="right purpose-text">
-          <span class="brand">ipotekabank</span>
-          <span class="brand-small">otp group</span>
-          НОУ "TOSHKENT SHAHRIDAGI TURIN POLITEXNIKA UNIVERSITETI"<br />
-          KONTRAKT TO'LOVI UCHUN* Оплата услуг 100%
-        </td>
-      </tr>
-      <tr>
-        <td class="left signature">Кассир имзоси: <span class="signature-line"></span></td>
-        <td class="right">
-          <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
-            <tr>
-              <td style="border:0; width:30mm;">Мижоз имзоси:</td>
-              <td style="border:0;"></td>
-              <td style="border:0; width:28mm;">Жами сумма:</td>
-              <td style="border:0; text-align:right; font-size:13pt;">${esc(amount)}</td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-    <div class="stamp"></div>
+    <div class="copy">${receiptTable(payment)}</div>
+    <div class="copy">${receiptTable(payment)}</div>
   </div>
 </body>
 </html>`;
-};
 
 export const downloadPermitDocument = async (payment: PermitPayment) => {
   const receipt = receiptNumber(payment);
