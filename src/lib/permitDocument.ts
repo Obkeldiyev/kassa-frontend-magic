@@ -6,14 +6,17 @@ type PermitPayment = {
   currency?: string;
   payerFullName?: string;
   payerJshshir?: string;
+  payerPhone?: string;
   payerAddress?: string;
   paymentType?: string;
+  description?: string;
   paymentCategory?: { name?: string };
   contractNumber?: string;
   contractDate?: string;
   paidAt?: string;
   createdAt?: string;
   receiverName?: string;
+  bankName?: string;
   receiverAccount?: string;
   receiverInn?: string;
   receiverMfo?: string;
@@ -22,6 +25,7 @@ type PermitPayment = {
   rawReceiptData?: {
     jshshir?: string;
     paymentType?: string;
+    description?: string;
     contractNumber?: string;
     contractDate?: string;
     operationNumber?: string;
@@ -67,17 +71,20 @@ const receiptTable = (payment: PermitPayment) => {
   const payer = payment.payerFullName || "-";
   const jshshir = payment.payerJshshir || payment.rawReceiptData?.jshshir || "-";
   const paymentType = payment.paymentCategory?.name || payment.paymentType || payment.rawReceiptData?.paymentType || "-";
+  const payerPhone = payment.payerPhone || "-";
+  const description = payment.description || payment.rawReceiptData?.description || "-";
   const contractNumber = payment.contractNumber || payment.rawReceiptData?.contractNumber || "-";
   const receiverAccount = payment.receiverAccount || "20208000504790690008";
   const receiverInn = payment.receiverInn || "301249598";
   const receiverMfo = payment.receiverMfo || payment.rawReceiptData?.receiverMfo || "00423";
-  const receiverName = payment.receiverName || 'NOY "TOSHKENT SHAHRIDAGI TURIN POLITEXNIKA UNIVERSITETI"';
+  const bankName = payment.bankName || payment.receiverName || 'NOY "TOSHKENT SHAHRIDAGI TURIN POLITEXNIKA UNIVERSITETI"';
+  const receiverName = payment.receiverName || bankName;
 
   return `<table class="receipt">
     <tr>
       <td class="left" rowspan="7">
         <div class="title">ХАБАРНОМА</div>
-        <div style="margin-top: 1.2mm;">"ИПОТЕКА-БАНК" АТИБ</div>
+        <div style="margin-top: 1.2mm;">${esc(bankName)}</div>
         <div>Тўлов тури: ${esc(paymentType)}</div>
         <div style="margin-top: 1.6mm;">${esc(receiptNumber(payment))} - Chakana kassa (bank)</div>
         <div style="margin-top: 1.2mm;">сана: ${esc(fmtDate(date))}</div>
@@ -90,14 +97,20 @@ const receiptTable = (payment: PermitPayment) => {
       </td>
       <td class="right">${esc(receiverName)} ${esc(paymentType)} UCHUN</td>
     </tr>
-    <tr><td class="right">ТОШКЕНТ Ш., ИПОТЕКА-БАНК АТИБ МЕҲНАТ ФИЛИАЛИ</td></tr>
+    <tr><td class="right">ТОШКЕНТ Ш., ${esc(bankName)}</td></tr>
     <tr><td class="right">ҳ/р: ${esc(receiverAccount)}&nbsp;&nbsp; МФО: ${esc(receiverMfo)}&nbsp;&nbsp; ИНН: ${esc(receiverInn)}</td></tr>
     <tr><td class="right muted-line"></td></tr>
-    <tr><td class="right">Тўловчи ФИШ: ${esc(payer)}</td></tr>
+    <tr><td class="right">Тўловчи ФИШ: ${esc(payer)} &nbsp;&nbsp; Тел: ${esc(payerPhone)}</td></tr>
     <tr><td class="right">ЖШШИР: ${esc(jshshir)} &nbsp;&nbsp; Шартнома: ${esc(contractNumber)} / ${esc(fmtDate(contractDate))}</td></tr>
     <tr class="row-tight">
       <td class="right">
         <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+          <tr>
+            <td style="border:0; padding:0; width:24mm;">Изоҳ:</td>
+            <td style="border:0; padding:0;">${esc(description)}</td>
+            <td style="border:0; padding:0; width:34mm;">Суммаси:</td>
+            <td style="border:0; padding:0; text-align:right;">${esc(amount)}</td>
+          </tr>
           <tr>
             <td style="border:0; padding:0; width:24mm;">Сана:</td>
             <td style="border:0; padding:0;">${esc(fmtDate(date))}й.</td>

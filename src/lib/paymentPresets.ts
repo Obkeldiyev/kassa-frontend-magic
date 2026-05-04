@@ -1,6 +1,7 @@
 export type ReceiverPreset = {
   id: string | number;
   name: string;
+  bankName?: string;
   account: string;
   inn: string;
   mfo?: string;

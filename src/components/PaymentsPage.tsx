@@ -21,6 +21,7 @@ interface Payment {
   amount: string | number;
   currency?: string;
   payerFullName: string;
+  payerJshshir?: string;
   payerPhone?: string;
   payerAddress?: string;
   contractDate?: string;
@@ -30,6 +31,7 @@ interface Payment {
   paidAt?: string;
   createdAt?: string;
   receiverName?: string;
+  bankName?: string;
   receiverAccount?: string;
   receiverInn?: string;
   receiverMfo?: string;
@@ -44,6 +46,7 @@ interface Payment {
     operationNumber?: string;
     receiverPresetId?: string;
     receiverMfo?: string;
+    description?: string;
   };
   cashier?: { first_name?: string; last_name?: string };
 }
@@ -54,8 +57,10 @@ const base = (v: Variant) => (v === "ADMIN" ? "/admin" : "/cashier");
 const emptyForm = {
   payerFullName: "",
   jshshir: "",
+  payerPhone: "",
   paymentCategoryId: "",
   amount: "",
+  description: "",
   contractNumber: "",
   contractDate: "",
   operationNumber: "",
@@ -66,6 +71,12 @@ const fmt = (n: any, c = "UZS") => {
   const v = Number(n) || 0;
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(v) + " " + c;
 };
+
+const paymentReason = (payment: Payment) =>
+  payment.description || payment.paymentCategory?.name || payment.rawReceiptData?.paymentType || "-";
+
+const payerJshshir = (payment: Payment) =>
+  payment.payerJshshir || payment.rawReceiptData?.jshshir || "-";
 
 const compactMoney = (n: any) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Number(n) || 0);
 
@@ -238,6 +249,7 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
         payerFullName: form.payerFullName,
         payerJshshir: form.jshshir,
         jshshir: form.jshshir,
+        payerPhone: form.payerPhone,
         paymentCategoryId: category.id,
         paymentTypeId: category.id,
         tolovTuriId: category.id,
@@ -245,9 +257,10 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
         contractNumber: form.contractNumber,
         payerAddress: `JSHSHIR: ${form.jshshir}; Shartnoma: ${form.contractNumber}; Sana: ${form.contractDate}`,
         contractDate: form.contractDate,
-        description: category.name,
+        description: form.description,
         receiverAccountId: Number(receiver.id),
         receiverName: receiver.name,
+        bankName: receiver.bankName || receiver.name,
         receiverAccount: receiver.account,
         receiverInn: receiver.inn,
         receiverMfo: receiver.mfo || receiver.MFO,
@@ -255,6 +268,7 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
           jshshir: form.jshshir,
           paymentCategoryId: category.id,
           paymentType: category.name,
+          description: form.description,
           contractNumber: form.contractNumber,
           contractDate: form.contractDate,
           operationNumber: form.operationNumber,
@@ -291,17 +305,20 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
       currency: form.currency,
       payerFullName: form.payerFullName,
       payerJshshir: form.jshshir,
+      payerPhone: form.payerPhone,
       paymentType: category.name,
       paymentCategory: category,
       contractNumber: form.contractNumber,
       contractDate: form.contractDate,
       receiverName: receiver.name,
+      bankName: receiver.bankName || receiver.name,
       receiverAccount: receiver.account,
       receiverInn: receiver.inn,
       receiverMfo: receiver.mfo || receiver.MFO,
       rawReceiptData: {
         jshshir: form.jshshir,
         paymentType: category.name,
+        description: form.description,
         contractNumber: form.contractNumber,
         contractDate: form.contractDate,
         operationNumber: form.operationNumber,
@@ -338,6 +355,7 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
                 <form onSubmit={create} className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div><Label>Ism familiya *</Label><Input value={form.payerFullName} onChange={(e) => setForm({ ...form, payerFullName: e.target.value })} required className="mt-1" /></div>
                   <div><Label>JSHSHIR *</Label><Input inputMode="numeric" maxLength={14} value={form.jshshir} onChange={(e) => setForm({ ...form, jshshir: e.target.value.replace(/\D/g, "").slice(0, 14) })} required className="mt-1" /></div>
+                  <div><Label>Phone number</Label><Input value={form.payerPhone} onChange={(e) => setForm({ ...form, payerPhone: e.target.value })} className="mt-1" /></div>
                   <div>
                     <Label>To'lov turi *</Label>
                     <select
@@ -352,6 +370,7 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
                     </select>
                   </div>
                   <div><Label>To'lov summasi *</Label><Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required className="mt-1" /></div>
+                  <div className="md:col-span-2"><Label>Description</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" /></div>
                   <div><Label>Shartnoma raqami *</Label><Input value={form.contractNumber} onChange={(e) => setForm({ ...form, contractNumber: e.target.value })} required className="mt-1" /></div>
                   <div><Label>Shartnoma sanasi *</Label><Input type="date" value={form.contractDate} onChange={(e) => setForm({ ...form, contractDate: e.target.value })} required className="mt-1" /></div>
                   <div><Label>Nomer operatsiya *</Label><Input value={form.operationNumber} onChange={(e) => setForm({ ...form, operationNumber: e.target.value })} required className="mt-1" /></div>
@@ -435,13 +454,16 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
       {filtered.length === 0 ? (
         <EmptyState title="No payments" desc="Receipts will appear here." />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl">
-          <div className="grid grid-cols-12 gap-3 border-b border-border/60 bg-muted/40 px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            <div className="col-span-3">Payer</div>
-            <div className="col-span-2">Receipt</div>
-            <div className="col-span-3 hidden md:block">Description</div>
-            <div className="col-span-2 hidden md:block">Date</div>
-            <div className="col-span-3 md:col-span-2 text-right">Amount</div>
+        <div className="overflow-x-auto rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl">
+          <div className="min-w-[980px]">
+          <div className="grid grid-cols-24 gap-3 border-b border-border/60 bg-muted/40 px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <div className="col-span-1">ID</div>
+            <div className="col-span-5">FIO</div>
+            <div className="col-span-3">JSHSHIR</div>
+            <div className="col-span-3">Tel raqami</div>
+            <div className="col-span-5">Nima uchun to'lov</div>
+            <div className="col-span-4">Date and time</div>
+            <div className="col-span-3 text-right">Amount</div>
           </div>
           {filtered.map((p, i) => (
             <motion.button
@@ -450,15 +472,18 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: Math.min(i * 0.02, 0.4) }}
               onClick={() => setView(p)}
-              className="grid w-full grid-cols-12 items-center gap-3 border-b border-border/40 px-4 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/40"
+              className="grid w-full grid-cols-24 items-center gap-3 border-b border-border/40 px-4 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/40"
             >
-              <div className="col-span-3 truncate font-medium">{p.payerFullName}</div>
-              <div className="col-span-2 truncate text-xs text-muted-foreground">{p.receiptNumber || "-"}</div>
-              <div className="col-span-3 hidden truncate text-xs text-muted-foreground md:block">{p.description || "-"}</div>
-              <div className="col-span-2 hidden text-xs text-muted-foreground md:block">{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : "-"}</div>
-              <div className="col-span-3 md:col-span-2 text-right font-mono font-semibold text-primary">{fmt(p.amount, p.currency)}</div>
+              <div className="col-span-1 font-mono text-xs text-muted-foreground">{i + 1}</div>
+              <div className="col-span-5 truncate font-medium">{p.payerFullName}</div>
+              <div className="col-span-3 truncate font-mono text-xs text-muted-foreground">{payerJshshir(p)}</div>
+              <div className="col-span-3 truncate text-xs text-muted-foreground">{p.payerPhone || "-"}</div>
+              <div className="col-span-5 truncate text-xs text-muted-foreground">{paymentReason(p)}</div>
+              <div className="col-span-4 truncate text-xs text-muted-foreground">{p.paidAt ? new Date(p.paidAt).toLocaleString() : "-"}</div>
+              <div className="col-span-3 text-right font-mono font-semibold text-primary">{fmt(p.amount, p.currency)}</div>
             </motion.button>
           ))}
+          </div>
         </div>
       )}
 
