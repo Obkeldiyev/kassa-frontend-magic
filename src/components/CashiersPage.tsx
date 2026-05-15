@@ -4,33 +4,57 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Trash2, User, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { EmptyState } from "@/components/EmptyState";
 
-interface Cashier { id: string; first_name: string; last_name: string; middle_name: string; username: string; createdAt: string; }
+interface Cashier {
+  id: string;
+  first_name: string;
+  last_name: string;
+  middle_name: string;
+  username: string;
+  permissions?: string;
+  createdAt: string;
+}
 
 interface Props { basePath: "/super-admin" | "/admin"; }
+
+const PERMISSION_OPTIONS = [
+  { id: "create_payments", label: "Create Payments" },
+  { id: "view_payments", label: "View Payments" },
+  { id: "edit_payments", label: "Edit Payments" },
+  { id: "export_payments", label: "Export Payments" },
+];
 
 export const CashiersPage = ({ basePath }: Props) => {
   const [items, setItems] = useState<Cashier[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ first_name: "", last_name: "", middle_name: "", username: "", password: "" });
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>(["create_payments", "view_payments"]);
 
   const load = () => api.get(`${basePath}/cashiers`).then((r) => setItems(r.data?.data ?? r.data ?? [])).catch(() => setItems([]));
   useEffect(() => { load(); }, [basePath]);
+
+  const togglePermission = (permId: string) => {
+    setSelectedPermissions((current) =>
+      current.includes(permId) ? current.filter((p) => p !== permId) : [...current, permId]
+    );
+  };
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await api.post(`${basePath}/cashiers`, form);
+      await api.post(`${basePath}/cashiers`, { ...form, permissions: selectedPermissions });
       toast.success("Cashier created");
       setOpen(false);
       setForm({ first_name: "", last_name: "", middle_name: "", username: "", password: "" });
+      setSelectedPermissions(["create_payments", "view_payments"]);
       load();
     } catch (e: any) { toast.error(e?.response?.data?.message || "Failed"); }
     finally { setLoading(false); }
@@ -40,6 +64,12 @@ export const CashiersPage = ({ basePath }: Props) => {
     if (!confirm("Delete this cashier?")) return;
     try { await api.delete(`${basePath}/cashiers/${id}`); toast.success("Deleted"); load(); }
     catch (e: any) { toast.error(e?.response?.data?.message || "Failed"); }
+  };
+
+  const getPermissionLabels = (permissions?: string) => {
+    if (!permissions) return "All permissions";
+    const perms = permissions.split(",").filter(Boolean);
+    return perms.map((p) => PERMISSION_OPTIONS.find((opt) => opt.id === p)?.label || p).join(", ");
   };
 
   return (
@@ -52,7 +82,7 @@ export const CashiersPage = ({ basePath }: Props) => {
             <DialogTrigger asChild>
               <Button className="gradient-primary shadow-elegant"><Plus className="mr-1 h-4 w-4" /> New cashier</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg">
               <DialogHeader><DialogTitle>Create cashier</DialogTitle></DialogHeader>
               <form onSubmit={create} className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -62,6 +92,25 @@ export const CashiersPage = ({ basePath }: Props) => {
                 <div><Label>Middle name</Label><Input value={form.middle_name} onChange={(e) => setForm({ ...form, middle_name: e.target.value })} required className="mt-1" /></div>
                 <div><Label>Username</Label><Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required className="mt-1" /></div>
                 <div><Label>Password</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required className="mt-1" /></div>
+                
+                <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+                  <Label className="mb-3 block text-sm font-semibold">Permissions</Label>
+                  <div className="space-y-2">
+                    {PERMISSION_OPTIONS.map((perm) => (
+                      <div key={perm.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={perm.id}
+                          checked={selectedPermissions.includes(perm.id)}
+                          onCheckedChange={() => togglePermission(perm.id)}
+                        />
+                        <label htmlFor={perm.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                          {perm.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <DialogFooter>
                   <Button type="submit" disabled={loading} className="gradient-primary">
                     {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating</> : "Create"}
@@ -89,10 +138,13 @@ export const CashiersPage = ({ basePath }: Props) => {
                 <div className="grid h-11 w-11 place-items-center rounded-xl gradient-primary text-white shadow-glow">
                   <User className="h-5 w-5" />
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="truncate font-display font-semibold">{c.first_name} {c.last_name}</p>
                   <p className="truncate text-xs text-muted-foreground">@{c.username} · {c.middle_name}</p>
                 </div>
+              </div>
+              <div className="mt-3 rounded-md bg-muted/40 px-2 py-1.5 text-xs text-muted-foreground">
+                {getPermissionLabels(c.permissions)}
               </div>
               <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
                 <span>{new Date(c.createdAt).toLocaleDateString()}</span>

@@ -10,6 +10,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
+import PublicReceipt from "./pages/PublicReceipt";
 
 import SuperAdminDashboard from "./pages/super-admin/SuperAdminDashboard";
 import Admins from "./pages/super-admin/Admins";
@@ -17,8 +18,9 @@ import { CashiersPage } from "./components/CashiersPage";
 import { PaymentsPage } from "./components/PaymentsPage";
 import { ProfilePage } from "./components/ProfilePage";
 import { ReceiverSettingsPage } from "./components/ReceiverSettingsPage";
+import { DailyReportsPage } from "./components/DailyReportsPage";
 
-import { Banknote, LayoutDashboard, ShieldCheck, Users, Receipt, User } from "lucide-react";
+import { Banknote, LayoutDashboard, ShieldCheck, Users, Receipt, User, FileBarChart } from "lucide-react";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +34,7 @@ const adminNav = [
   { to: "/admin", label: "Cashiers", icon: Users },
   { to: "/admin/payments", label: "Payments", icon: Receipt },
   { to: "/admin/payment-numbers", label: "Numbers", icon: Banknote },
+  { to: "/admin/daily-reports", label: "Daily Reports", icon: FileBarChart },
   { to: "/admin/profile", label: "Profile", icon: User },
 ];
 
@@ -52,6 +55,7 @@ const App = () => (
               <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="/login" element={<Login />} />
               <Route path="/super-admin/login" element={<Login roles={["SUPER_ADMIN"]} defaultRole="SUPER_ADMIN" />} />
+              <Route path="/receipt/:id" element={<PublicReceipt />} />
 
               {/* Super Admin */}
               <Route
@@ -77,6 +81,7 @@ const App = () => (
                 <Route path="/admin" element={<CashiersPage basePath="/admin" />} />
                 <Route path="/admin/payments" element={<PaymentsPage variant="ADMIN" />} />
                 <Route path="/admin/payment-numbers" element={<ReceiverSettingsPage />} />
+                <Route path="/admin/daily-reports" element={<DailyReportsPage />} />
                 <Route path="/admin/profile" element={<ProfilePage variant="ADMIN" />} />
               </Route>
 
