@@ -7,12 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Download, Search, Receipt, Plus, Loader2, Eye, CalendarDays, TrendingUp, Wallet, FileSearch } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Download, Search, Receipt, Plus, Loader2, Eye, CalendarDays, TrendingUp, Wallet, FileSearch, QrCode, FileSpreadsheet, Settings2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { EmptyState } from "@/components/EmptyState";
 import { StatCard } from "@/components/StatCard";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import QRCodeReact from "react-qr-code";
 
 interface Payment {
   id: string | number;
@@ -81,8 +85,30 @@ const payerJshshir = (payment: Payment) =>
 
 const compactMoney = (n: any) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Number(n) || 0);
 
+const ALL_COLUMNS: ColumnDef[] = [
+  { id: "id", label: "ID", sortable: false, defaultVisible: true },
+  { id: "payerFullName", label: "FIO", sortable: true, defaultVisible: true },
+  { id: "payerJshshir", label: "JSHSHIR", sortable: false, defaultVisible: true },
+  { id: "payerPhone", label: "Tel raqami", sortable: false, defaultVisible: true },
+  { id: "paymentReason", label: "Nima uchun to'lov", sortable: false, defaultVisible: true },
+  { id: "contractNumber", label: "Contract #", sortable: false, defaultVisible: false },
+  { id: "receiverName", label: "Receiver", sortable: false, defaultVisible: false },
+  { id: "cashierName", label: "Cashier", sortable: false, defaultVisible: false },
+  { id: "paidAt", label: "Date and time", sortable: true, defaultVisible: true },
+  { id: "amount", label: "Amount", sortable: true, defaultVisible: true },
+];
+
 type ChartMode = "day" | "week" | "month" | "year";
 type PaymentCategory = { id: string; name: string };
+type SortField = "paidAt" | "amount" | "payerFullName" | "receiptNumber" | "createdAt";
+type SortOrder = "asc" | "desc";
+
+interface ColumnDef {
+  id: string;
+  label: string;
+  sortable?: boolean;
+  defaultVisible?: boolean;
+}
 
 const chartKey = (value: string | undefined, mode: ChartMode) => {
   const date = value ? new Date(value) : new Date();
@@ -162,9 +188,29 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
   const [receivers, setReceivers] = useState<ReceiverPreset[]>([]);
   const [categories, setCategories] = useState<PaymentCategory[]>([]);
   const [chartMode, setChartMode] = useState<ChartMode>("day");
+  
+  // QR Code state
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [qrUrl, setQrUrl] = useState("");
+  
+  // Filtering & Sorting
+  const [sortField, setSortField] = useState<SortField>("paidAt");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [filterCashier, setFilterCashier] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  
+  // Column visibility
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(
+    ALL_COLUMNS.filter(c => c.defaultVisible).map(c => c.id)
+  );
+  const [cashiers, setCashiers] = useState<Array<{id: string; first_name: string; last_name: string}>>([]);
 
   const load = () => api.get(`${base(variant)}/payments`).then((r) => setItems(r.data?.data ?? r.data ?? [])).catch(() => setItems([]));
+  
   useEffect(() => { load(); }, [variant]);
+  
   useEffect(() => {
     if (variant !== "CASHIER") return;
 
@@ -188,15 +234,80 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
     });
   }, [open]);
 
+  // Load cashiers and categories for filtering
+  useEffect(() => {
+    if (variant === "ADMIN") {
+      api.get("/admin/cashiers").then((r) => setCashiers(r.data?.data ?? [])).catch(() => {});
+      api.get("/admin/payment-categories").then((r) => setCategories(r.data?.data ?? [])).catch(() => {});
+    }
+  }, [variant]);
+
   const filtered = useMemo(() => {
-    if (!q) return items;
-    const s = q.toLowerCase();
-    return items.filter((p) =>
-      p.payerFullName?.toLowerCase().includes(s) ||
-      p.receiptNumber?.toLowerCase().includes(s) ||
-      p.description?.toLowerCase().includes(s)
-    );
-  }, [q, items]);
+    let result = items;
+    
+    // Text search
+    if (q) {
+      const s = q.toLowerCase();
+      result = result.filter((p) =>
+        p.payerFullName?.toLowerCase().includes(s) ||
+        p.receiptNumber?.toLowerCase().includes(s) ||
+        p.description?.toLowerCase().includes(s)
+      );
+    }
+    
+    // Filter by cashier
+    if (filterCashier) {
+      result = result.filter((p) => p.cashier?.id === filterCashier);
+    }
+    
+    // Filter by category
+    if (filterCategory) {
+      result = result.filter((p) => p.paymentCategory?.id === filterCategory);
+    }
+    
+    // Filter by date range
+    if (filterDateFrom) {
+      const from = new Date(filterDateFrom);
+      from.setHours(0, 0, 0, 0);
+      result = result.filter((p) => {
+        const paidDate = new Date(p.paidAt || p.createdAt || "");
+        return paidDate >= from;
+      });
+    }
+    if (filterDateTo) {
+      const to = new Date(filterDateTo);
+      to.setHours(23, 59, 59, 999);
+      result = result.filter((p) => {
+        const paidDate = new Date(p.paidAt || p.createdAt || "");
+        return paidDate <= to;
+      });
+    }
+    
+    // Sort
+    result.sort((a, b) => {
+      let aVal: any, bVal: any;
+      
+      if (sortField === "paidAt" || sortField === "createdAt") {
+        aVal = new Date(a[sortField] || 0).getTime();
+        bVal = new Date(b[sortField] || 0).getTime();
+      } else if (sortField === "amount") {
+        aVal = Number(a.amount);
+        bVal = Number(b.amount);
+      } else if (sortField === "payerFullName") {
+        aVal = a.payerFullName?.toLowerCase() || "";
+        bVal = b.payerFullName?.toLowerCase() || "";
+      } else if (sortField === "receiptNumber") {
+        aVal = a.receiptNumber || "";
+        bVal = b.receiptNumber || "";
+      }
+      
+      if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+    
+    return result;
+  }, [q, items, filterCashier, filterCategory, filterDateFrom, filterDateTo, sortField, sortOrder]);
 
   const total = items.reduce((acc, p) => acc + Number(p.amount || 0), 0);
   const chartData = useMemo(() => buildChartData(items, chartMode), [items, chartMode]);
@@ -342,6 +453,59 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
     setPreviewOpen(true);
   };
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "desc" ? "asc" : "desc");
+    } else {
+      setSortField(field);
+      setSortOrder("desc");
+    }
+  };
+
+  const generateQR = async (payment: Payment) => {
+    try {
+      const res = await api.get(`${base(variant)}/payments/${payment.id}/qr`);
+      setQrUrl(res.data?.data?.url || "");
+      setQrDialogOpen(true);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Failed to generate QR code");
+    }
+  };
+
+  const exportToExcel = () => {
+    const params = new URLSearchParams();
+    if (filterCashier) params.append("cashierId", filterCashier);
+    if (filterCategory) params.append("categoryId", filterCategory);
+    if (filterDateFrom) params.append("dateFrom", filterDateFrom);
+    if (filterDateTo) params.append("dateTo", filterDateTo);
+    params.append("sortBy", sortField);
+    params.append("sortOrder", sortOrder);
+    
+    const url = `${api.defaults.baseURL}${base(variant)}/payments/export/excel?${params}`;
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `payments-${Date.now()}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast.success("Downloading Excel file...");
+  };
+
+  const toggleColumn = (columnId: string) => {
+    setVisibleColumns((current) =>
+      current.includes(columnId)
+        ? current.filter((id) => id !== columnId)
+        : [...current, columnId]
+    );
+  };
+
+  const getSortIcon = (field: string) => {
+    if (sortField !== field) return <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />;
+    return sortOrder === "desc" 
+      ? <ArrowDown className="ml-1 inline h-3 w-3 text-primary" />
+      : <ArrowUp className="ml-1 inline h-3 w-3 text-primary" />;
+  };
+
   return (
     <>
       <PageHeader
@@ -449,9 +613,89 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
         <StatCard index={2} icon={Receipt} label="Currency" value={items[0]?.currency || "UZS"} />
       </div>
 
-      <div className="mb-4 relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by payer, receipt or description" className="pl-9" />
+      <div className="mb-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by payer, receipt or description" className="pl-9" />
+          </div>
+          
+          {variant === "ADMIN" && (
+            <>
+              <Select value={filterCashier} onValueChange={setFilterCashier}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Cashiers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Cashiers</SelectItem>
+                  {cashiers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.first_name} {c.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Categories</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Input
+                type="date"
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+                placeholder="From date"
+                className="w-[150px]"
+              />
+              <Input
+                type="date"
+                value={filterDateTo}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+                placeholder="To date"
+                className="w-[150px]"
+              />
+
+              <Button onClick={exportToExcel} variant="outline" className="gap-2">
+                <FileSpreadsheet className="h-4 w-4" /> Export Excel
+              </Button>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Settings2 className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm">Visible Columns</h4>
+                    {ALL_COLUMNS.map((col) => (
+                      <div key={col.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`col-${col.id}`}
+                          checked={visibleColumns.includes(col.id)}
+                          onCheckedChange={() => toggleColumn(col.id)}
+                        />
+                        <label htmlFor={`col-${col.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                          {col.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </>
+          )}
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -461,13 +705,51 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
           <table className="min-w-[1100px] w-full table-fixed text-left text-sm">
             <thead className="border-b border-border/60 bg-muted/40 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
               <tr>
-                <th className="w-14 px-4 py-3">ID</th>
-                <th className="w-56 px-4 py-3">FIO</th>
-                <th className="w-40 px-4 py-3">JSHSHIR</th>
-                <th className="w-36 px-4 py-3">Tel raqami</th>
-                <th className="w-64 px-4 py-3">Nima uchun to'lov</th>
-                <th className="w-44 px-4 py-3">Date and time</th>
-                <th className="w-36 px-4 py-3 text-right">Amount</th>
+                {visibleColumns.includes("id") && (
+                  <th className="w-14 px-4 py-3">ID</th>
+                )}
+                {visibleColumns.includes("payerFullName") && (
+                  <th 
+                    className="w-56 px-4 py-3 cursor-pointer hover:text-foreground transition-colors"
+                    onClick={() => handleSort("payerFullName")}
+                  >
+                    FIO {getSortIcon("payerFullName")}
+                  </th>
+                )}
+                {visibleColumns.includes("payerJshshir") && (
+                  <th className="w-40 px-4 py-3">JSHSHIR</th>
+                )}
+                {visibleColumns.includes("payerPhone") && (
+                  <th className="w-36 px-4 py-3">Tel raqami</th>
+                )}
+                {visibleColumns.includes("paymentReason") && (
+                  <th className="w-64 px-4 py-3">Nima uchun to'lov</th>
+                )}
+                {visibleColumns.includes("contractNumber") && (
+                  <th className="w-32 px-4 py-3">Contract #</th>
+                )}
+                {visibleColumns.includes("receiverName") && (
+                  <th className="w-48 px-4 py-3">Receiver</th>
+                )}
+                {visibleColumns.includes("cashierName") && (
+                  <th className="w-40 px-4 py-3">Cashier</th>
+                )}
+                {visibleColumns.includes("paidAt") && (
+                  <th 
+                    className="w-44 px-4 py-3 cursor-pointer hover:text-foreground transition-colors"
+                    onClick={() => handleSort("paidAt")}
+                  >
+                    Date and time {getSortIcon("paidAt")}
+                  </th>
+                )}
+                {visibleColumns.includes("amount") && (
+                  <th 
+                    className="w-36 px-4 py-3 text-right cursor-pointer hover:text-foreground transition-colors"
+                    onClick={() => handleSort("amount")}
+                  >
+                    Amount {getSortIcon("amount")}
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -480,13 +762,38 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
                   onClick={() => setView(p)}
                   className="cursor-pointer border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/40"
                 >
-                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{i + 1}</td>
-                  <td className="truncate px-4 py-3 font-medium">{p.payerFullName}</td>
-                  <td className="truncate px-4 py-3 font-mono text-xs text-muted-foreground">{payerJshshir(p)}</td>
-                  <td className="truncate px-4 py-3 text-xs text-muted-foreground">{p.payerPhone || "-"}</td>
-                  <td className="truncate px-4 py-3 text-xs text-muted-foreground">{paymentReason(p)}</td>
-                  <td className="truncate px-4 py-3 text-xs text-muted-foreground">{p.paidAt ? new Date(p.paidAt).toLocaleString() : "-"}</td>
-                  <td className="px-4 py-3 text-right font-mono font-semibold text-primary">{fmt(p.amount, p.currency)}</td>
+                  {visibleColumns.includes("id") && (
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{i + 1}</td>
+                  )}
+                  {visibleColumns.includes("payerFullName") && (
+                    <td className="truncate px-4 py-3 font-medium">{p.payerFullName}</td>
+                  )}
+                  {visibleColumns.includes("payerJshshir") && (
+                    <td className="truncate px-4 py-3 font-mono text-xs text-muted-foreground">{payerJshshir(p)}</td>
+                  )}
+                  {visibleColumns.includes("payerPhone") && (
+                    <td className="truncate px-4 py-3 text-xs text-muted-foreground">{p.payerPhone || "-"}</td>
+                  )}
+                  {visibleColumns.includes("paymentReason") && (
+                    <td className="truncate px-4 py-3 text-xs text-muted-foreground">{paymentReason(p)}</td>
+                  )}
+                  {visibleColumns.includes("contractNumber") && (
+                    <td className="truncate px-4 py-3 text-xs text-muted-foreground">{p.contractNumber || p.rawReceiptData?.contractNumber || "-"}</td>
+                  )}
+                  {visibleColumns.includes("receiverName") && (
+                    <td className="truncate px-4 py-3 text-xs text-muted-foreground">{p.receiverName || p.receiver?.name || "-"}</td>
+                  )}
+                  {visibleColumns.includes("cashierName") && (
+                    <td className="truncate px-4 py-3 text-xs text-muted-foreground">
+                      {p.cashier ? `${p.cashier.first_name} ${p.cashier.last_name}` : "-"}
+                    </td>
+                  )}
+                  {visibleColumns.includes("paidAt") && (
+                    <td className="truncate px-4 py-3 text-xs text-muted-foreground">{p.paidAt ? new Date(p.paidAt).toLocaleString() : "-"}</td>
+                  )}
+                  {visibleColumns.includes("amount") && (
+                    <td className="px-4 py-3 text-right font-mono font-semibold text-primary">{fmt(p.amount, p.currency)}</td>
+                  )}
                 </motion.tr>
               ))}
             </tbody>
@@ -529,6 +836,13 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
               >
                 <FileSearch className="mr-2 h-4 w-4" /> Preview check
               </Button>
+              <Button 
+                variant="outline" 
+                className="mt-3 w-full" 
+                onClick={() => generateQR(view)}
+              >
+                <QrCode className="mr-2 h-4 w-4" /> Generate QR Code
+              </Button>
               <Button className="mt-3 w-full" onClick={() => downloadPermitDocument(view)}>
                 <Download className="mr-2 h-4 w-4" /> Download receipt
               </Button>
@@ -543,6 +857,38 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
             <DialogTitle className="flex items-center gap-2"><FileSearch className="h-4 w-4" /> Check preview</DialogTitle>
           </DialogHeader>
           <iframe title="Check preview" srcDoc={previewHtml} className="h-[72vh] w-full rounded-md border bg-white" />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="h-4 w-4" /> Payment QR Code
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-6">
+            {qrUrl && (
+              <>
+                <div className="rounded-lg border-4 border-border bg-white p-4">
+                  <QRCodeReact value={qrUrl} size={256} />
+                </div>
+                <p className="text-center text-sm text-muted-foreground">
+                  Scan this QR code to view the receipt
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(qrUrl);
+                    toast.success("Link copied to clipboard");
+                  }}
+                  className="w-full"
+                >
+                  Copy Link
+                </Button>
+              </>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>
