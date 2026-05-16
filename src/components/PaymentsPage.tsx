@@ -622,12 +622,15 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
           
           {variant === "ADMIN" && (
             <>
-              <Select value={filterCashier} onValueChange={setFilterCashier}>
+              <Select
+                value={filterCashier || "all"}
+                onValueChange={(v) => setFilterCashier(v === "all" ? "" : v)}
+              >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="All Cashiers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Cashiers</SelectItem>
+                  <SelectItem value="all">All Cashiers</SelectItem>
                   {cashiers.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.first_name} {c.last_name}
@@ -636,12 +639,15 @@ export const PaymentsPage = ({ variant }: { variant: Variant }) => {
                 </SelectContent>
               </Select>
 
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <Select
+                value={filterCategory || "all"}
+                onValueChange={(v) => setFilterCategory(v === "all" ? "" : v)}
+              >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
                   {categories.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
